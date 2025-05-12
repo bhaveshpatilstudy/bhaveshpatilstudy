@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Enhanced Missile Tracker Simulation</title>
+  <style>
+    body {
+      background-color: black;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: #0f0;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background-color: #000;
+    }
+    #log {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #0f0;
+      font-size: 14px;
+      background: rgba(0,0,0,0.6);
+      padding: 10px;
+      border: 1px solid #0f0;
+    }
+  </style>
+</head>
+<body>
+
+<div id="log">Missile Tracker Log:<br></div>
+<canvas id="radar" width="600" height="600"></canvas>
+<audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+
+<script>
+  const canvas = document.getElementById("radar");
+  const ctx = canvas.getContext("2d");
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const logBox = document.getElementById("log");
+  const alertSound = document.getElementById("alertSound");
+
+  let angle = 0;
+  let explosion = false;
+  let missileX = 0, missileY = 0;
+
+  function logMessage(message) {
+    const now = new Date().toLocaleTimeString();
+    logBox.innerHTML += `[${now}] ${message}<br>`;
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function drawRadar() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Radar circle
+    ctx.strokeStyle = "#0f0";
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 250, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Cross lines
+    ctx.beginPath();
+    ctx.moveTo(centerX - 250, centerY);
+    ctx.lineTo(centerX + 250, centerY);
+    ctx.moveTo(centerX, centerY - 250);
+    ctx.lineTo(centerX, centerY + 250);
+    ctx.stroke();
+
+    // Radar sweep
+    ctx.beginPath();
+    const sweepX = centerX + 250 * Math.cos(angle);
+    const sweepY = centerY + 250 * Math.sin(angle);
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(sweepX, sweepY);
+    ctx.strokeStyle = "lime";
+    ctx.stroke();
+
+    // Simulate missile position
+    missileX = centerX + 150 * Math.cos(angle + 1.5);
+    missileY = centerY + 150 * Math.sin(angle + 1.5);
+
+    // Draw missile
+    ctx.beginPath();
+    ctx.arc(missileX, missileY, 6, 0, Math.PI * 2);
+    ctx.fillStyle = "red";
+    ctx.fill();
+
+    // Tracking line
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(missileX, missileY);
+    ctx.strokeStyle = "red";
+    ctx.stroke();
+
+    // Explosion simulation
+    if (angle % (Math.PI / 2) < 0.02 && !explosion) {
+      drawExplosion(missileX, missileY);
+      logMessage("Missile detected at GPS: " + getFakeGPS(missileX, missileY));
+      alertSound.play();
+      explosion = true;
+    }
+
+    if (angle % (Math.PI / 2) > 0.05) explosion = false;
+
+    angle += 0.02;
+    requestAnimationFrame(drawRadar);
+  }
+
+  function drawExplosion(x, y) {
+    ctx.beginPath();
+    ctx.arc(x, y, 20, 0, Math.PI * 2);
+    ctx.fillStyle = "orange";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, 10, 0, Math.PI * 2);
+    ctx.fillStyle = "yellow";
+    ctx.fill();
+  }
+
+  function getFakeGPS(x, y) {
+    const lat = 19.0 + (x / 600) * 0.1; // fake lat
+    const lng = 72.0 + (y / 600) * 0.1; // fake lng
+    return `(${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+  }
+
+  drawRadar();
+</script>
+
+</body>
+</html>
