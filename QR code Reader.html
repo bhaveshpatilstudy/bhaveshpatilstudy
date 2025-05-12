@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR & Barcode Reader</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        #video {
+            width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            display: block;
+        }
+        #canvas {
+            display: none;
+        }
+        .scan-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            height: 200px;
+            border: 3px solid #4CAF50;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+        }
+        .result h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .info-section {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #e9f7ef;
+            border-radius: 4px;
+        }
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin-left: 10px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QR Code & Barcode Reader</h1>
+        
+        <div class="scanner-container">
+            <video id="video" playsinline></video>
+            <canvas id="canvas" class="hidden"></canvas>
+            <div class="scan-box"></div>
+        </div>
+        
+        <div style="text-align: center;">
+            <button id="startButton" class="btn">Start Scanner</button>
+            <button id="stopButton" class="btn">Stop Scanner</button>
+            <label for="codeType">Code Type:</label>
+            <select id="codeType">
+                <option value="both">Both QR and Barcode</option>
+                <option value="qr">QR Code Only</option>
+                <option value="barcode">Barcode Only</option>
+            </select>
+        </div>
+        
+        <div id="result" class="result hidden">
+            <h3>Scan Result</h3>
+            <p><strong>Type:</strong> <span id="resultType"></span></p>
+            <p><strong>Content:</strong> <span id="resultContent"></span></p>
+            <p><strong>Format:</strong> <span id="resultFormat"></span></p>
+            <p><strong>Timestamp:</strong> <span id="resultTimestamp"></span></p>
+        </div>
+        
+        <div class="info-section">
+            <h3>About This Scanner</h3>
+            <p>This scanner can read both QR codes and various barcode formats including:</p>
+            <ul>
+                <li>UPC-A, UPC-E</li>
+                <li>EAN-8, EAN-13</li>
+                <li>Code 39, Code 93, Code 128</li>
+                <li>ITF (Interleaved 2 of 5)</li>
+                <li>Codabar</li>
+                <li>And many more</li>
+            </ul>
+            <p>For QR codes, it can read URLs, text, contact information, calendar events, and other encoded data.</p>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const resultDiv = document.getElementById('result');
+        const resultType = document.getElementById('resultType');
+        const resultContent = document.getElementById('resultContent');
+        const resultFormat = document.getElementById('resultFormat');
+        const resultTimestamp = document.getElementById('resultTimestamp');
+        const codeTypeSelect = document.getElementById('codeType');
+        
+        let scanning = false;
+        let codeReader;
+        let jsQRInterval;
+        
+        // Initialize the appropriate scanner based on selection
+        function initScanner() {
+            const codeType = codeTypeSelect.value;
+            
+            if (codeType === 'qr' || codeType === 'both') {
+                // Use jsQR for QR codes
+                initQRScanner();
+            }
+            
+            if (codeType === 'barcode' || codeType === 'both') {
+                // Use ZXing for barcodes
+                initBarcodeScanner();
+            }
+        }
+        
+        function initQRScanner() {
+            // Clear any existing interval
+            if (jsQRInterval) {
+                clearInterval(jsQRInterval);
+            }
+            
+            // Set up jsQR scanning
+            jsQRInterval = setInterval(() => {
+                if (video.readyState === video.HAVE_ENOUGH_DATA && scanning) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const canvasContext = canvas.getContext('2d');
+                    canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    
+                    if (code) {
+                        displayResult({
+                            format: 'QR_CODE',
+                            text: code.data,
+                            timestamp: new Date()
+                        });
+                    }
+                }
+            }, 100);
+        }
+        
+        function initBarcodeScanner() {
+            // Initialize ZXing barcode reader
+            codeReader = new ZXing.BrowserMultiFormatReader();
+            
+            // Start decoding
+            if (scanning) {
+                codeReader.decodeFromVideoDevice(undefined, 'video', (result, error) => {
+                    if (result) {
+                        displayResult(result);
+                    }
+                    if (error && !(error instanceof ZXing.NotFoundException)) {
+                        console.error(error);
+                    }
+                });
+            }
+        }
+        
+        function displayResult(result) {
+            resultDiv.classList.remove('hidden');
+            resultType.textContent = result.format === 'QR_CODE' ? 'QR Code' : 'Barcode';
+            resultContent.textContent = result.text;
+            resultFormat.textContent = result.format;
+            resultTimestamp.textContent = new Date().toLocaleString();
+            
+            // If it's a URL, make it clickable
+            if (result.text.startsWith('http://') || result.text.startsWith('https://')) {
+                resultContent.innerHTML = `<a href="${result.text}" target="_blank">${result.text}</a>`;
+            }
+        }
+        
+        startButton.addEventListener('click', () => {
+            if (scanning) return;
+            
+            scanning = true;
+            resultDiv.classList.add('hidden');
+            
+            // Request camera access
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.play();
+                    initScanner();
+                })
+                .catch(err => {
+                    console.error('Error accessing camera:', err);
+                    alert('Could not access the camera. Please ensure you have granted camera permissions.');
+                    scanning = false;
+                });
+        });
+        
+        stopButton.addEventListener('click', () => {
+            if (!scanning) return;
+            
+            scanning = false;
+            
+            // Stop video stream
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            
+            // Stop scanners
+            if (codeReader) {
+                codeReader.reset();
+            }
+            if (jsQRInterval) {
+                clearInterval(jsQRInterval);
+            }
+        });
+        
+        // Handle code type change
+        codeTypeSelect.addEventListener('change', () => {
+            if (scanning) {
+                stopButton.click();
+                startButton.click();
+            }
+        });
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            stopButton.click();
+        });
+    </script>
+</body>
+</html>
