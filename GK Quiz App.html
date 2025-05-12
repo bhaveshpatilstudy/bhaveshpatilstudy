@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GK Quiz Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #e9f0f4;
+      text-align: center;
+      padding: 20px;
+    }
+    .quiz-container {
+      background: white;
+      padding: 30px;
+      max-width: 700px;
+      margin: auto;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 { color: #333; }
+    .question {
+      font-size: 22px;
+      margin-bottom: 15px;
+    }
+    .option {
+      display: block;
+      margin: 8px 0;
+      font-size: 18px;
+      cursor: pointer;
+      background-color: #f0f0f0;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      width: 100%;
+    }
+    .option:hover {
+      background-color: #d3e3fc;
+    }
+    .timer {
+      font-size: 18px;
+      color: red;
+      margin-top: 10px;
+    }
+    input {
+      padding: 10px;
+      font-size: 16px;
+      margin: 15px 0;
+      width: 80%;
+    }
+    button {
+      padding: 12px 25px;
+      font-size: 16px;
+      margin-top: 10px;
+      cursor: pointer;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      border-radius: 6px;
+    }
+    #leaderboard {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="quiz-container">
+  <h2>General Knowledge Quiz</h2>
+  <div id="start-screen">
+    <p>Enter your name to begin:</p>
+    <input type="text" id="username" placeholder="Your Name" />
+    <br>
+    <button onclick="startQuiz()">Start Quiz</button>
+  </div>
+
+  <div id="quiz-screen" style="display:none;">
+    <div class="timer" id="timer">Time Left: 30s</div>
+    <div class="question" id="question"></div>
+    <div id="options"></div>
+    <button onclick="nextQuestion()">Next</button>
+  </div>
+
+  <div id="result-screen" style="display:none;">
+    <h3>Quiz Completed!</h3>
+    <p id="final-score"></p>
+    <div id="leaderboard"></div>
+  </div>
+</div>
+
+<script>
+const questions = [
+  { question: "Who is the current President of India?", options: ["Ram Nath Kovind", "Droupadi Murmu", "Narendra Modi", "Venkaiah Naidu"], answer: "Droupadi Murmu" },
+  { question: "What is the capital of Australia?", options: ["Sydney", "Canberra", "Melbourne", "Perth"], answer: "Canberra" },
+  { question: "Which country won the ICC Cricket World Cup 2023?", options: ["India", "England", "Australia", "New Zealand"], answer: "Australia" },
+  { question: "Which is the longest river in the world?", options: ["Amazon", "Yangtze", "Mississippi", "Nile"], answer: "Nile" },
+  { question: "In which year did India gain independence?", options: ["1945", "1946", "1947", "1950"], answer: "1947" },
+  { question: "Which city is known as the financial capital of India?", options: ["Delhi", "Chennai", "Bangalore", "Mumbai"], answer: "Mumbai" },
+  { question: "Where is the headquarters of the United Nations?", options: ["Geneva", "Paris", "New York", "London"], answer: "New York" },
+  { question: "Which planet is known as the Red Planet?", options: ["Venus", "Mars", "Jupiter", "Saturn"], answer: "Mars" },
+  { question: "Who was the first Prime Minister of India?", options: ["Sardar Patel", "Mahatma Gandhi", "Jawaharlal Nehru", "Rajendra Prasad"], answer: "Jawaharlal Nehru" }
+];
+
+let currentQuestion = 0;
+let score = 0;
+let timer;
+let timeLeft = 30;
+let username = "";
+
+function startQuiz() {
+  username = document.getElementById("username").value;
+  if (username.trim() === "") {
+    alert("Please enter your name.");
+    return;
+  }
+  document.getElementById("start-screen").style.display = "none";
+  document.getElementById("quiz-screen").style.display = "block";
+  loadQuestion();
+  startTimer();
+}
+
+function loadQuestion() {
+  if (currentQuestion >= questions.length) {
+    endQuiz();
+    return;
+  }
+
+  const q = questions[currentQuestion];
+  document.getElementById("question").textContent = q.question;
+  const optionsDiv = document.getElementById("options");
+  optionsDiv.innerHTML = "";
+  q.options.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.textContent = opt;
+    btn.className = "option";
+    btn.onclick = () => checkAnswer(opt);
+    optionsDiv.appendChild(btn);
+  });
+}
+
+function checkAnswer(selected) {
+  if (selected === questions[currentQuestion].answer) {
+    score++;
+  }
+  disableOptions();
+}
+
+function disableOptions() {
+  const buttons = document.querySelectorAll(".option");
+  buttons.forEach(btn => btn.disabled = true);
+}
+
+function nextQuestion() {
+  clearInterval(timer);
+  currentQuestion++;
+  timeLeft = 30;
+  loadQuestion();
+  startTimer();
+}
+
+function startTimer() {
+  document.getElementById("timer").textContent = `Time Left: ${timeLeft}s`;
+  timer = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timer").textContent = `Time Left: ${timeLeft}s`;
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      nextQuestion();
+    }
+  }, 1000);
+}
+
+function endQuiz() {
+  clearInterval(timer);
+  document.getElementById("quiz-screen").style.display = "none";
+  document.getElementById("result-screen").style.display = "block";
+  document.getElementById("final-score").textContent = `${username}, your score is ${score}/${questions.length}`;
+
+  const record = { name: username, score: score };
+  let leaderboard = JSON.parse(localStorage.getItem("quizLeaderboard")) || [];
+  leaderboard.push(record);
+  leaderboard.sort((a, b) => b.score - a.score);
+  leaderboard = leaderboard.slice(0, 5);
+  localStorage.setItem("quizLeaderboard", JSON.stringify(leaderboard));
+
+  const boardDiv = document.getElementById("leaderboard");
+  boardDiv.innerHTML = "<h4>🏆 Leaderboard</h4>";
+  leaderboard.forEach((entry, index) => {
+    boardDiv.innerHTML += `<p>${index + 1}. ${entry.name} - ${entry.score}</p>`;
+  });
+}
+</script>
+
+</body>
+</html>
